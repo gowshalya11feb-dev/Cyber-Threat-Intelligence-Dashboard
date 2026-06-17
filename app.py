@@ -1,0 +1,214 @@
+import requests
+from config import API_KEY
+import streamlit as st
+import plotly.graph_objects as go
+
+
+# -----------------------------
+# PAGE CONFIG
+# -----------------------------
+st.set_page_config(
+    page_title="Cyber Threat Intelligence Dashboard",
+    page_icon="🛡️",
+    layout="wide"
+)
+
+
+# -----------------------------
+# ABUSEIPDB FUNCTION
+# -----------------------------
+def check_ip(ip):
+
+    url = "https://api.abuseipdb.com/api/v2/check"
+
+    headers = {
+        "Key": API_KEY,
+        "Accept": "application/json"
+    }
+
+    params = {
+        "ipAddress": ip,
+        "maxAgeInDays": 90
+    }
+
+    response = requests.get(
+        url,
+        headers=headers,
+        params=params
+    )
+
+    return response.json()
+
+
+# -----------------------------
+# SIDEBAR
+# -----------------------------
+st.sidebar.title("🛡️ Navigation")
+
+page = st.sidebar.radio(
+    "Select Module",
+    ["Dashboard", "IP Analysis", "Reports"]
+)
+
+
+# -----------------------------
+# DASHBOARD PAGE
+# -----------------------------
+if page == "Dashboard":
+
+    st.title("🛡️ Cyber Threat Intelligence Dashboard")
+
+    st.markdown("### Security Operations Center Overview")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Total Scans", "152")
+    col2.metric("High Risk", "21")
+    col3.metric("Medium Risk", "44")
+    col4.metric("Low Risk", "87")
+
+    st.markdown("---")
+
+    gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=72,
+        title={'text': "Threat Level"},
+        gauge={
+            'axis': {'range': [0, 100]},
+            'bar': {'color': "red"},
+            'steps': [
+                {'range': [0, 30], 'color': "green"},
+                {'range': [30, 70], 'color': "yellow"},
+                {'range': [70, 100], 'color': "red"}
+            ]
+        }
+    ))
+
+    st.plotly_chart(gauge, use_container_width=True)
+
+    st.warning(
+        "⚠ Multiple suspicious indicators detected. Investigation recommended."
+    )
+
+
+# -----------------------------
+# IP ANALYSIS PAGE
+# -----------------------------
+elif page == "IP Analysis":
+
+    st.title("🔍 IP Reputation Analysis")
+
+    st.markdown(
+        "Analyze IP addresses using real-time threat intelligence from AbuseIPDB."
+    )
+
+    ip = st.text_input(
+        "Enter IP Address",
+        placeholder="Example: 8.8.8.8"
+    )
+
+    if st.button("Analyze IP"):
+
+        if not ip:
+            st.warning("Please enter an IP address.")
+        else:
+
+            with st.spinner("Analyzing Threat Intelligence..."):
+
+                try:
+
+                    result = check_ip(ip)
+
+                    data = result["data"]
+
+                    abuse_score = data["abuseConfidenceScore"]
+                    country = data["countryCode"]
+                    reports = data["totalReports"]
+                    domain = data.get("domain", "Unknown")
+                    isp = data.get("isp", "Unknown")
+
+                    if abuse_score >= 75:
+                        risk = "HIGH"
+                    elif abuse_score >= 40:
+                        risk = "MEDIUM"
+                    else:
+                        risk = "LOW"
+
+                    st.success("Analysis Completed Successfully")
+
+                    col1, col2, col3 = st.columns(3)
+
+                    col1.metric(
+                        "Threat Score",
+                        abuse_score
+                    )
+
+                    col2.metric(
+                        "Risk Level",
+                        risk
+                    )
+
+                    col3.metric(
+                        "Reports",
+                        reports
+                    )
+
+                    st.markdown("---")
+
+                    st.subheader("Threat Intelligence Report")
+
+                    st.write(f"🌍 Country : {country}")
+                    st.write(f"🏢 ISP : {isp}")
+                    st.write(f"🌐 Domain : {domain}")
+                    st.write(f"📢 Total Reports : {reports}")
+                    st.write(f"🚨 Abuse Score : {abuse_score}")
+
+                    if abuse_score >= 75:
+
+                        st.error(
+                            "🚨 High Risk IP Detected. Immediate Investigation Recommended."
+                        )
+
+                    elif abuse_score >= 40:
+
+                        st.warning(
+                            "⚠ Medium Risk IP Detected."
+                        )
+
+                    else:
+
+                        st.success(
+                            "✅ Low Risk IP."
+                        )
+
+                    st.json(data)
+
+                except Exception as e:
+
+                    st.error("Unable to retrieve threat intelligence data.")
+                    st.write(str(e))
+
+
+# -----------------------------
+# REPORTS PAGE
+# -----------------------------
+elif page == "Reports":
+
+    st.title("📄 Threat Reports")
+
+    report = """
+Cyber Threat Intelligence Report
+
+Threat Score : 82
+Risk Level : HIGH
+Recommendation : Investigate Immediately
+
+Generated By:
+Cyber Threat Intelligence Dashboard
+"""
+
+    st.download_button(
+        label="Download Report",
+        data=report,
+        file_name="Threat_Report.txt"
+    )
